@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Page - Redeem Rewards</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        header {
+            padding: 10px 20px;
+            background-color: #6200ea;
+            color: white;
+            text-align: center;
+        }
+        .container {
+            padding: 20px;
+        }
+        .product {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fff;
+            padding: 10px;
+            text-align: center;
+        }
+        .product img {
+            max-width: 100%;
+            height: auto;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            background-color: #6200ea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn[disabled] {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .wallet-box {
+            position: fixed;
+            top: 1px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            background-color:#ffa500 ;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .wallet-box img {
+            width: 25px;
+            height: 25px;
+            margin-right: 10px;
+        }
+        .copy-icon {
+            cursor: pointer;
+            margin-left: 5px;
+            color: #6200ea;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h2>exchange store</h2>
+    </header>
+
+    <!-- Wallet Box -->
+    <div class="wallet-box" id="wallet-box">
+        <img src="https://cdn-icons-png.flaticon.com/512/3225/3225057.png" alt="Wallet Icon">
+        <span id="user-points">Loading points...</span>
+    </div>
+
+    <div class="container" id="products">
+        <!-- Products will be dynamically inserted here -->
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCBPGSYNVaPPDu7RWee9ymckMaI1VQNjd4",
+            authDomain: "trendy-movie.firebaseapp.com",
+            databaseURL: "https://trendy-movie-default-rtdb.firebaseio.com",
+            projectId: "trendy-movie",
+            storageBucket: "trendy-movie.appspot.com",
+            messagingSenderId: "699469684359",
+            appId: "1:699469684359:web:34cc2adfc8019b89a76222",
+            measurementId: "G-54SX69JVY3"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const uid = localStorage.getItem('uid');
+
+        const productsContainer = document.getElementById('products');
+        const userPointsElement = document.getElementById('user-points');
+
+        // Load User Points
+        let userPoints = 0;
+        function loadUserPoints() {
+            db.ref(`users/${uid}`).once('value').then(snapshot => {
+                const userData = snapshot.val();
+                userPoints = userData.points || 0;
+                userPointsElement.textContent = `Points: ${userPoints}`;
+            });
+        }
+
+        // Load Products
+function loadProducts() {
+    db.ref('products').once('value').then(snapshot => {
+        const products = snapshot.val();
+        productsContainer.innerHTML = '';
+        for (const productId in products) {
+            const product = products[productId];
+            const productElement = document.createElement('div');
+            productElement.classList.add('product');
+
+            const isUnavailable = product.stock <= 0;
+            const stockStatus = isUnavailable 
+                ? '<span style="color: red;">Unavailable</span>' 
+                : product.stock;
+
+            productElement.innerHTML = `
+                <img src="${product.image}" alt="${product.title}" />
+                <h3>${product.title}</h3>
+                <p>Price: ${product.price} points</p>
+                <p>Available Stock: ${stockStatus}</p>
+                <button class="btn" onclick="redeemProduct('${productId}', ${product.price})" ${isUnavailable ? 'disabled' : ''}>Redeem</button>
+            `;
+
+            productsContainer.appendChild(productElement);
+        }
+    });
+}
+
+        // Redeem Product
+        function redeemProduct(productId, productPrice) {
+            if (userPoints < productPrice) {
+                Swal.fire('Insufficient Points', 'You do not have enough points to redeem this product.', 'error');
+                return;
+            }
+
+            db.ref(`products/${productId}`).once('value').then(snapshot => {
+                const product = snapshot.val();
+                if (product.stock <= 0) {
+                    Swal.fire('Out of Stock', 'This product is no longer available.', 'error');
+                    return;
+                }
+
+                // Find an unused reward
+                const rewards = product.rewards || {};
+                let rewardToUse = null;
+                let rewardKey = null;
+                for (const key in rewards) {
+                    if (!rewards[key].used) {
+                        rewardToUse = rewards[key];
+                        rewardKey = key;
+                        break;
+                    }
+                }
+
+                if (!rewardToUse) {
+                    Swal.fire('No Rewards Available', 'No unused rewards are available for this product.', 'error');
+                    return;
+                }
+
+                // Mark reward as used and update user points and stock
+                const updates = {};
+                updates[`products/${productId}/rewards/${rewardKey}/used`] = true;
+                updates[`products/${productId}/stock`] = product.stock - 1;
+                updates[`users/${uid}/points`] = userPoints - productPrice;
+
+                firebase.database().ref().update(updates).then(() => {
+                    userPoints -= productPrice;
+                    Swal.fire({
+                        title: 'Redeem Successful',
+                        html: `
+                            <p>Code: <b>${rewardToUse.code}</b> <span class="copy-icon" onclick="copyToClipboard('${rewardToUse.code}')">&#128203;</span></p>
+                            <p>PIN: <b>${rewardToUse.pin}</b> <span class="copy-icon" onclick="copyToClipboard('${rewardToUse.pin}')">&#128203;</span></p>
+                        `,
+                        icon: 'success',
+                    });
+
+                    loadUserPoints();
+                    loadProducts();
+                });
+            });
+        }
+
+        // Copy to Clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                Swal.fire('Copied!', 'Text copied to clipboard.', 'success');
+            });
+        }
+
+        // Initialize
+        loadUserPoints();
+        loadProducts();
+    </script>
+</body>
+</html>
