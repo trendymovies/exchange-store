@@ -56,7 +56,7 @@
             right: 10px;
             display: flex;
             align-items: center;
-            background-color:#ffa500 ;
+            background-color: #ffa500;
             color: white;
             padding: 5px 15px;
             border-radius: 5px;
@@ -77,7 +77,7 @@
 </head>
 <body>
     <header>
-        <h2>exchange store</h2>
+        <h2>Exchange Store</h2>
     </header>
 
     <!-- Wallet Box -->
@@ -122,32 +122,32 @@
         }
 
         // Load Products
-function loadProducts() {
-    db.ref('products').once('value').then(snapshot => {
-        const products = snapshot.val();
-        productsContainer.innerHTML = '';
-        for (const productId in products) {
-            const product = products[productId];
-            const productElement = document.createElement('div');
-            productElement.classList.add('product');
+        function loadProducts() {
+            db.ref('products').once('value').then(snapshot => {
+                const products = snapshot.val();
+                productsContainer.innerHTML = '';
+                for (const productId in products) {
+                    const product = products[productId];
+                    const productElement = document.createElement('div');
+                    productElement.classList.add('product');
 
-            const isUnavailable = product.stock <= 0;
-            const stockStatus = isUnavailable 
-                ? '<span style="color: red;">Unavailable</span>' 
-                : product.stock;
+                    const isUnavailable = product.stock <= 0;
+                    const stockStatus = isUnavailable 
+                        ? '<span style="color: red;">Unavailable</span>' 
+                        : product.stock;
 
-            productElement.innerHTML = `
-                <img src="${product.image}" alt="${product.title}" />
-                <h3>${product.title}</h3>
-                <p>Price: ${product.price} points</p>
-                <p>Available Stock: ${stockStatus}</p>
-                <button class="btn" onclick="redeemProduct('${productId}', ${product.price})" ${isUnavailable ? 'disabled' : ''}>Redeem</button>
-            `;
+                    productElement.innerHTML = `
+                        <img src="${product.image}" alt="${product.title}" />
+                        <h3>${product.title}</h3>
+                        <p>Price: ${product.price} points</p>
+                        <p>Available Stock: ${stockStatus}</p>
+                        <button class="btn" onclick="redeemProduct('${productId}', ${product.price})" ${isUnavailable ? 'disabled' : ''}>Redeem</button>
+                    `;
 
-            productsContainer.appendChild(productElement);
+                    productsContainer.appendChild(productElement);
+                }
+            });
         }
-    });
-}
 
         // Redeem Product
         function redeemProduct(productId, productPrice) {
@@ -163,36 +163,34 @@ function loadProducts() {
                     return;
                 }
 
-                // Find an unused reward
-                const rewards = product.rewards || {};
-                let rewardToUse = null;
-                let rewardKey = null;
-                for (const key in rewards) {
-                    if (!rewards[key].used) {
-                        rewardToUse = rewards[key];
-                        rewardKey = key;
+                // Find an unused reward code
+                const rewardCodes = product.rewardCodes || {};
+                let selectedCode = null;
+                for (const code in rewardCodes) {
+                    if (!rewardCodes[code].used) {
+                        selectedCode = { code, pin: rewardCodes[code].pin };
                         break;
                     }
                 }
 
-                if (!rewardToUse) {
+                if (!selectedCode) {
                     Swal.fire('No Rewards Available', 'No unused rewards are available for this product.', 'error');
                     return;
                 }
 
-                // Mark reward as used and update user points and stock
+                // Update Firebase (mark reward as used, reduce stock, and deduct user points)
                 const updates = {};
-                updates[`products/${productId}/rewards/${rewardKey}/used`] = true;
+                updates[`products/${productId}/rewardCodes/${selectedCode.code}/used`] = true;
                 updates[`products/${productId}/stock`] = product.stock - 1;
                 updates[`users/${uid}/points`] = userPoints - productPrice;
 
-                firebase.database().ref().update(updates).then(() => {
+                db.ref().update(updates).then(() => {
                     userPoints -= productPrice;
                     Swal.fire({
                         title: 'Redeem Successful',
                         html: `
-                            <p>Code: <b>${rewardToUse.code}</b> <span class="copy-icon" onclick="copyToClipboard('${rewardToUse.code}')">&#128203;</span></p>
-                            <p>PIN: <b>${rewardToUse.pin}</b> <span class="copy-icon" onclick="copyToClipboard('${rewardToUse.pin}')">&#128203;</span></p>
+                            <p>Code: <b>${selectedCode.code}</b> <span class="copy-icon" onclick="copyToClipboard('${selectedCode.code}')">;</span></p>
+                            <p>PIN: <b>${selectedCode.pin}</b> <span class="copy-icon" onclick="copyToClipboard('${selectedCode.pin}')">;</span></p>
                         `,
                         icon: 'success',
                     });
