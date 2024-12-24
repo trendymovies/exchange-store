@@ -74,6 +74,17 @@
             height: 18px;
             vertical-align: middle;
         }
+        .swal-toast {
+            font-size: 14px !important;
+        }
+        .close-icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 18px;
+            color: #333;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -81,15 +92,12 @@
         <h2>Exchange Store</h2>
     </header>
 
-    <!-- Wallet Box -->
     <div class="wallet-box" id="wallet-box">
         <img src="https://cdn-icons-png.flaticon.com/512/3225/3225057.png" alt="Wallet Icon">
         <span id="user-points">Loading points...</span>
     </div>
 
-    <div class="container" id="products">
-        <!-- Products will be dynamically inserted here -->
-    </div>
+    <div class="container" id="products"></div>
 
     <script>
         // Firebase Configuration
@@ -112,8 +120,8 @@
         const productsContainer = document.getElementById('products');
         const userPointsElement = document.getElementById('user-points');
 
-        // Load User Points
         let userPoints = 0;
+
         function loadUserPoints() {
             db.ref(`users/${uid}`).once('value').then(snapshot => {
                 const userData = snapshot.val();
@@ -122,21 +130,19 @@
             });
         }
 
-        // Load Products
         function loadProducts() {
             db.ref('products').once('value').then(snapshot => {
                 const products = snapshot.val();
                 productsContainer.innerHTML = '';
                 for (const productId in products) {
                     const product = products[productId];
-                    const productElement = document.createElement('div');
-                    productElement.classList.add('product');
-
                     const isUnavailable = product.stock <= 0;
-                    const stockStatus = isUnavailable 
-                        ? '<span style="color: red;">Unavailable</span>' 
+                    const stockStatus = isUnavailable
+                        ? '<span style="color: red;">Unavailable</span>'
                         : product.stock;
 
+                    const productElement = document.createElement('div');
+                    productElement.classList.add('product');
                     productElement.innerHTML = `
                         <img src="${product.image}" alt="${product.title}" />
                         <h3>${product.title}</h3>
@@ -150,7 +156,6 @@
             });
         }
 
-        // Redeem Product
         function redeemProduct(productId, productPrice) {
             if (userPoints < productPrice) {
                 Swal.fire('Insufficient Points', 'You do not have enough points to redeem this product.', 'error');
@@ -164,7 +169,6 @@
                     return;
                 }
 
-                // Find an unused reward code
                 const rewardCodes = product.rewardCodes || {};
                 let selectedCode = null;
                 for (const code in rewardCodes) {
@@ -179,7 +183,6 @@
                     return;
                 }
 
-                // Update Firebase (mark reward as used, reduce stock, and deduct user points)
                 const updates = {};
                 updates[`products/${productId}/rewardCodes/${selectedCode.code}/used`] = true;
                 updates[`products/${productId}/stock`] = product.stock - 1;
@@ -190,12 +193,20 @@
                     Swal.fire({
                         title: 'Redeem Successful',
                         html: `
+                            <span class="close-icon" onclick="Swal.close()">×</span>
                             <p>Code: <b>${selectedCode.code}</b> 
-                            <img class="copy-icon" src="https://cdn-icons-png.flaticon.com/512/84/84380.png" alt="Copy Icon" onclick="copyToClipboard('${selectedCode.code}')" /></p>
+                            <img class="copy-icon" src="https://cdn-icons-png.flaticon.com/512/1621/1621635.png" alt="Copy Icon" onclick="copyToClipboard('${selectedCode.code}')" /></p>
                             <p>PIN: <b>${selectedCode.pin}</b> 
-                            <img class="copy-icon" src="https://cdn-icons-png.flaticon.com/512/84/84380.png" alt="Copy Icon" onclick="copyToClipboard('${selectedCode.pin}')" /></p>
+                            <img class="copy-icon" src="https://cdn-icons-png.flaticon.com/512/1621/1621635.png" alt="Copy Icon" onclick="copyToClipboard('${selectedCode.pin}')" /></p>
+                        <span>🚨 plise capcher a schreanshot before copy code's</span>
                         `,
                         icon: 'success',
+                        showCloseButton: false,
+                        showConfirmButton: false,
+                        allowOutsideClick: false,
+                        customClass: {
+                            popup: 'swal-toast',
+                        },
                     });
 
                     loadUserPoints();
@@ -204,26 +215,28 @@
             });
         }
 
-        // Copy to Clipboard
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
                 Swal.fire({
+                    toast: true,
+                    position: 'top-end',
                     icon: 'success',
-                    title: 'Copied!',
-                    text: 'Text copied to clipboard.',
+                    title: 'Copied to clipboard!',
+                    showConfirmButton: false,
                     timer: 1500,
-                    showConfirmButton: false
                 });
             }).catch(() => {
                 Swal.fire({
+                    toast: true,
+                    position: 'top-end',
                     icon: 'error',
-                    title: 'Error',
-                    text: 'Failed to copy text.',
+                    title: 'Failed to copy!',
+                    showConfirmButton: false,
+                    timer: 1500,
                 });
             });
         }
 
-        // Initialize
         loadUserPoints();
         loadProducts();
     </script>
