@@ -70,8 +70,9 @@
         .copy-icon {
             cursor: pointer;
             margin-left: 5px;
-            color: #6200ea;
-            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
         }
     </style>
 </head>
@@ -189,8 +190,10 @@
                     Swal.fire({
                         title: 'Redeem Successful',
                         html: `
-                            <p>Code: <b>${selectedCode.code}</b> <span class="copy-icon" onclick="copyToClipboard('${selectedCode.code}')"></span></p>
-                            <p>PIN: <b>${selectedCode.pin}</b> <span class="copy-icon" onclick="copyToClipboard('${selectedCode.pin}')"></span></p>
+                            <p>Code: <b>${selectedCode.code}</b> 
+                            <img class="copy-icon" src="https://cdn-icons-png.flaticon.com/512/84/84380.png" alt="Copy Icon" onclick="copyToClipboard('${selectedCode.code}')" /></p>
+                            <p>PIN: <b>${selectedCode.pin}</b> 
+                            <img class="copy-icon" src="https://cdn-icons-png.flaticon.com/512/84/84380.png" alt="Copy Icon" onclick="copyToClipboard('${selectedCode.pin}')" /></p>
                         `,
                         icon: 'success',
                     });
@@ -204,7 +207,19 @@
         // Copy to Clipboard
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                Swal.fire('Copied!', 'Text copied to clipboard.', 'success');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Copied!',
+                    text: 'Text copied to clipboard.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            }).catch(() => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to copy text.',
+                });
             });
         }
 
